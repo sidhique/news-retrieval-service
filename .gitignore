@@ -1,0 +1,26 @@
+# Build output
+/target/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local scratch/resource notes
+src/main/resources/secrets
+src/main/resources/deploy-command
+src/main/resources/notes
