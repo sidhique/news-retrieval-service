@@ -16,4 +16,5 @@ CREATE TABLE IF NOT EXISTS articles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_location_point
-    ON articles USING GIST (location_point);
+    ON articles USING SPGIST (location_point);
+
