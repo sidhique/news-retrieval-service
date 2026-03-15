@@ -1,5 +1,6 @@
 package com.example.newsretrieval.article;
 
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -18,4 +19,19 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         nativeQuery = true
     )
     void syncLocationPoint(@Param("id") UUID id);
+
+    @Query(
+        value = """
+            SELECT *
+            FROM articles
+            WHERE EXISTS (
+                SELECT 1
+                FROM unnest(category) AS c
+                WHERE lower(c) = lower(:category)
+            )
+            ORDER BY publication_date DESC NULLS LAST, created_at DESC
+            """,
+        nativeQuery = true
+    )
+    List<ArticleEntity> findAllByCategory(@Param("category") String category);
 }

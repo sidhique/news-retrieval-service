@@ -2,8 +2,9 @@ package com.example.newsretrieval.api;
 
 import com.example.newsretrieval.article.ArticleService;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -12,11 +13,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class ArticleController {
+
+    private static final DateTimeFormatter PUBLICATION_DATE_FORMATTER =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HHmmss'Z'");
 
     private final ArticleService articleService;
 
@@ -25,25 +30,14 @@ public class ArticleController {
     }
 
     @GetMapping("/articles")
-    public ResponseEntity<List<ArticleResponse>> getArticles() {
-        List<ArticleResponse> response = articleService.getAllArticles().stream()
-            .map(article -> new ArticleResponse(
-                article.id(),
-                article.title(),
-                article.description(),
-                article.url(),
-                article.publicationDate(),
-                article.sourceName(),
-                article.category(),
-                article.relevanceScore(),
-                article.latitude(),
-                article.longitude(),
-                article.aiSummary(),
-                article.createdAt(),
-                article.updatedAt()
-            ))
-            .toList();
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ArticlesResponse> getArticles() {
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articleService.getAllArticles())));
+    }
+
+    @GetMapping("/api/news/category")
+    public ResponseEntity<ArticlesResponse> getArticlesByCategory(@RequestParam("category") String category) {
+        List<ArticleService.Article> articles = articleService.getArticlesByCategory(category);
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
     }
 
     @PostMapping("/articles")
@@ -112,22 +106,53 @@ public class ArticleController {
     }
 
     public record ArticleResponse(
-        UUID id,
         String title,
         String description,
         String url,
-        @JsonProperty("publication_date") LocalDateTime publicationDate,
+        @JsonProperty("publication_date") String publicationDate,
         @JsonProperty("source_name") String sourceName,
-        List<String> category,
+        String category,
         @JsonProperty("relevance_score") Double relevanceScore,
+        @JsonProperty("llm_summary") String llmSummary,
         Double latitude,
-        Double longitude,
-        @JsonProperty("ai_summary") String aiSummary,
-        @JsonProperty("created_at") OffsetDateTime createdAt,
-        @JsonProperty("updated_at") OffsetDateTime updatedAt
+        Double longitude
     ) {
     }
 
+    public record ArticlesResponse(List<ArticleResponse> articles) {
+    }
+
     public record ErrorResponse(String error) {
+    }
+
+    private String formatPublicationDate(LocalDateTime publicationDate) {
+        if (publicationDate == null) {
+            return null;
+        }
+        return publicationDate.atOffset(ZoneOffset.UTC).format(PUBLICATION_DATE_FORMATTER);
+    }
+
+    private String formatCategory(List<String> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return null;
+        }
+        return String.join(", ", categories);
+    }
+
+    private List<ArticleResponse> toArticleResponses(List<ArticleService.Article> articles) {
+        return articles.stream()
+            .map(article -> new ArticleResponse(
+                article.title(),
+                article.description(),
+                article.url(),
+                formatPublicationDate(article.publicationDate()),
+                article.sourceName(),
+                formatCategory(article.category()),
+                article.relevanceScore(),
+                article.aiSummary(),
+                article.latitude(),
+                article.longitude()
+            ))
+            .toList();
     }
 }

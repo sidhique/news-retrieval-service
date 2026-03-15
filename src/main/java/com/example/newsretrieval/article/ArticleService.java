@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -45,13 +46,36 @@ public class ArticleService {
 
     @Transactional(readOnly = true)
     public List<Article> getAllArticles() {
-        return articleRepository.findAll(
-                Sort.by(
-                    Sort.Order.desc("publicationDate").nullsLast(),
-                    Sort.Order.desc("createdAt")
-                )
+        List<ArticleEntity> entities = articleRepository.findAll(
+            Sort.by(
+                Sort.Order.desc("publicationDate").nullsLast(),
+                Sort.Order.desc("createdAt")
             )
-            .stream()
+        );
+        return toArticles(entities);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Article> getArticlesByCategory(String category) {
+        if (!StringUtils.hasText(category)) {
+            throw new IllegalArgumentException("category is required.");
+        }
+        return toArticles(articleRepository.findAllByCategory(category.trim()));
+    }
+
+    private List<String> toCategoryList(String[] values) {
+        if (values == null) {
+            return List.of();
+        }
+        return Arrays.stream(values)
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .filter(value -> !value.isEmpty())
+            .toList();
+    }
+
+    private List<Article> toArticles(List<ArticleEntity> entities) {
+        return entities.stream()
             .map(entity -> new Article(
                 entity.getId(),
                 entity.getTitle(),
@@ -67,17 +91,6 @@ public class ArticleService {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
             ))
-            .toList();
-    }
-
-    private List<String> toCategoryList(String[] values) {
-        if (values == null) {
-            return List.of();
-        }
-        return Arrays.stream(values)
-            .filter(Objects::nonNull)
-            .map(String::trim)
-            .filter(value -> !value.isEmpty())
             .toList();
     }
 
