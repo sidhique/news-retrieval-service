@@ -16,11 +16,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/api/v1")
 public class ArticleController {
 
     private static final DateTimeFormatter PUBLICATION_DATE_FORMATTER =
@@ -58,7 +60,7 @@ public class ArticleController {
         ));
     }
 
-    @GetMapping("/api/news/category")
+    @GetMapping("/news/category")
     public ResponseEntity<ArticlesResponse> getArticlesByCategory(
         @RequestParam("category") String category,
         @RequestParam(name = "offset", defaultValue = "0") Integer offset,
@@ -73,7 +75,7 @@ public class ArticleController {
         ));
     }
 
-    @GetMapping("/api/news/score")
+    @GetMapping("/news/score")
     public ResponseEntity<ArticlesResponse> getArticlesByRelevance(
         @RequestParam(name = "threshold", defaultValue = "0.7") double threshold,
         @RequestParam(name = "offset", defaultValue = "0") Integer offset,
@@ -92,7 +94,7 @@ public class ArticleController {
         ));
     }
 
-    @GetMapping("/api/news/source")
+    @GetMapping("/news/source")
     public ResponseEntity<ArticlesResponse> getArticlesBySource(
         @RequestParam("source") String source,
         @RequestParam(name = "offset", defaultValue = "0") Integer offset,
@@ -107,7 +109,7 @@ public class ArticleController {
         ));
     }
 
-    @GetMapping("/api/news/nearby")
+    @GetMapping("/news/nearby")
     public ResponseEntity<ArticlesResponse> getNearbyArticles(
         @RequestParam("latitude") double latitude,
         @RequestParam("longitude") double longitude,
@@ -130,7 +132,7 @@ public class ArticleController {
         ));
     }
 
-    @GetMapping("/api/news/search")
+    @GetMapping("/news/search")
     public ResponseEntity<SearchArticlesResponse> searchArticles(
         @RequestParam("query") String query,
         @RequestParam(name = "location", required = false) String location,
