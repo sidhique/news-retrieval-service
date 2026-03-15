@@ -40,6 +40,14 @@ public class ArticleController {
         return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
     }
 
+    @GetMapping("/api/news/score")
+    public ResponseEntity<ArticlesResponse> getArticlesByRelevance(
+        @RequestParam(name = "threshold", defaultValue = "0.7") double threshold
+    ) {
+        List<ArticleService.Article> articles = articleService.getArticlesByRelevanceScore(threshold);
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+    }
+
     @PostMapping("/articles")
     public ResponseEntity<ArticleUpsertResponse> upsertArticle(@RequestBody ArticleUpsertPayload payload) {
         validate(payload);

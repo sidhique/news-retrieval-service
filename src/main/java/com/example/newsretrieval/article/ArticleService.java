@@ -63,6 +63,11 @@ public class ArticleService {
         return toArticles(articleRepository.findAllByCategory(category.trim()));
     }
 
+    @Transactional(readOnly = true)
+    public List<Article> getArticlesByRelevanceScore(double threshold) {
+        return toArticles(articleRepository.findAllByRelevanceScoreGreaterThan(threshold));
+    }
+
     private List<String> toCategoryList(String[] values) {
         if (values == null) {
             return List.of();
