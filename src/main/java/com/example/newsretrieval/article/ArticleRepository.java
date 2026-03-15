@@ -46,4 +46,16 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         nativeQuery = true
     )
     List<ArticleEntity> findAllByRelevanceScoreGreaterThan(@Param("threshold") double threshold);
+
+    @Query(
+        value = """
+            SELECT *
+            FROM articles
+            WHERE source_name IS NOT NULL
+              AND lower(source_name) = lower(:source)
+            ORDER BY publication_date DESC NULLS LAST, created_at DESC
+            """,
+        nativeQuery = true
+    )
+    List<ArticleEntity> findAllBySource(@Param("source") String source);
 }

@@ -48,6 +48,12 @@ public class ArticleController {
         return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
     }
 
+    @GetMapping("/api/news/source")
+    public ResponseEntity<ArticlesResponse> getArticlesBySource(@RequestParam("source") String source) {
+        List<ArticleService.Article> articles = articleService.getArticlesBySource(source);
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+    }
+
     @PostMapping("/articles")
     public ResponseEntity<ArticleUpsertResponse> upsertArticle(@RequestBody ArticleUpsertPayload payload) {
         validate(payload);

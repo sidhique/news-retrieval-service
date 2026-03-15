@@ -68,6 +68,14 @@ public class ArticleService {
         return toArticles(articleRepository.findAllByRelevanceScoreGreaterThan(threshold));
     }
 
+    @Transactional(readOnly = true)
+    public List<Article> getArticlesBySource(String source) {
+        if (!StringUtils.hasText(source)) {
+            throw new IllegalArgumentException("source is required.");
+        }
+        return toArticles(articleRepository.findAllBySource(source.trim()));
+    }
+
     private List<String> toCategoryList(String[] values) {
         if (values == null) {
             return List.of();
