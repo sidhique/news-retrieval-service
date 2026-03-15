@@ -54,6 +54,16 @@ public class ArticleController {
         return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
     }
 
+    @GetMapping("/api/news/nearby")
+    public ResponseEntity<ArticlesResponse> getNearbyArticles(
+        @RequestParam("latitude") double latitude,
+        @RequestParam("longitude") double longitude,
+        @RequestParam(name = "radiusKm", defaultValue = "10") double radiusKm
+    ) {
+        List<ArticleService.Article> articles = articleService.getArticlesNearby(latitude, longitude, radiusKm);
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+    }
+
     @PostMapping("/articles")
     public ResponseEntity<ArticleUpsertResponse> upsertArticle(@RequestBody ArticleUpsertPayload payload) {
         validate(payload);

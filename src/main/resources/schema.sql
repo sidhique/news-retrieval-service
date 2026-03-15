@@ -9,12 +9,12 @@ CREATE TABLE IF NOT EXISTS articles (
     relevance_score DOUBLE PRECISION,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-    location_point POINT NOT NULL,
+    location_point geography(Point, 4326) NOT NULL,
     ai_summary TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_location_point
-    ON articles USING SPGIST (location_point);
+    ON articles USING GIST (location_point);
 

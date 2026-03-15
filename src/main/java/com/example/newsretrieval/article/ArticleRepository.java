@@ -13,7 +13,7 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
     @Query(
         value = """
             UPDATE articles
-            SET location_point = POINT(longitude, latitude)
+            SET location_point = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
             WHERE id = :id
             """,
         nativeQuery = true
@@ -58,4 +58,30 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         nativeQuery = true
     )
     List<ArticleEntity> findAllBySource(@Param("source") String source);
+
+    @Query(
+        value = """
+            SELECT *
+            FROM articles
+            WHERE location_point IS NOT NULL
+              AND ST_DWithin(
+                    location_point,
+                    ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
+                    :radiusKm * 1000
+                  )
+            ORDER BY
+              ST_Distance(
+                location_point,
+                ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
+              ) ASC,
+              publication_date DESC NULLS LAST,
+              created_at DESC
+            """,
+        nativeQuery = true
+    )
+    List<ArticleEntity> findAllNearby(
+        @Param("latitude") double latitude,
+        @Param("longitude") double longitude,
+        @Param("radiusKm") double radiusKm
+    );
 }

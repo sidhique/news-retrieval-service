@@ -76,6 +76,20 @@ public class ArticleService {
         return toArticles(articleRepository.findAllBySource(source.trim()));
     }
 
+    @Transactional(readOnly = true)
+    public List<Article> getArticlesNearby(double latitude, double longitude, double radiusKm) {
+        if (latitude < -90 || latitude > 90) {
+            throw new IllegalArgumentException("latitude must be between -90 and 90.");
+        }
+        if (longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException("longitude must be between -180 and 180.");
+        }
+        if (radiusKm <= 0) {
+            throw new IllegalArgumentException("radiusKm must be greater than 0.");
+        }
+        return toArticles(articleRepository.findAllNearby(latitude, longitude, radiusKm));
+    }
+
     private List<String> toCategoryList(String[] values) {
         if (values == null) {
             return List.of();
