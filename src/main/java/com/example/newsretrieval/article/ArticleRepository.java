@@ -84,4 +84,77 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         @Param("longitude") double longitude,
         @Param("radiusKm") double radiusKm
     );
+
+    @Query(
+        value = """
+            SELECT *
+            FROM articles
+            WHERE to_tsvector(
+                    'english',
+                    coalesce(title, '') || ' ' ||
+                    coalesce(description, '') || ' ' ||
+                    coalesce(source_name, '') || ' ' ||
+                    coalesce(array_to_string(category, ' '), '')
+                  )
+                  @@ plainto_tsquery('english', :query)
+            ORDER BY ts_rank(
+                       to_tsvector(
+                           'english',
+                           coalesce(title, '') || ' ' ||
+                           coalesce(description, '') || ' ' ||
+                           coalesce(source_name, '') || ' ' ||
+                           coalesce(array_to_string(category, ' '), '')
+                       ),
+                       plainto_tsquery('english', :query)
+                     ) DESC,
+                     publication_date DESC NULLS LAST,
+                     created_at DESC
+            """,
+        nativeQuery = true
+    )
+    List<ArticleEntity> searchByTextMatch(@Param("query") String query);
+
+    @Query(
+        value = """
+            SELECT *
+            FROM articles
+            WHERE to_tsvector(
+                    'english',
+                    coalesce(title, '') || ' ' ||
+                    coalesce(description, '') || ' ' ||
+                    coalesce(source_name, '') || ' ' ||
+                    coalesce(array_to_string(category, ' '), '')
+                  )
+                  @@ plainto_tsquery('english', :query)
+              AND location_point IS NOT NULL
+              AND ST_DWithin(
+                    location_point,
+                    ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
+                    :radiusKm * 1000
+                  )
+            ORDER BY ts_rank(
+                       to_tsvector(
+                           'english',
+                           coalesce(title, '') || ' ' ||
+                           coalesce(description, '') || ' ' ||
+                           coalesce(source_name, '') || ' ' ||
+                           coalesce(array_to_string(category, ' '), '')
+                       ),
+                       plainto_tsquery('english', :query)
+                     ) DESC,
+                     ST_Distance(
+                       location_point,
+                       ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
+                     ) ASC,
+                     publication_date DESC NULLS LAST,
+                     created_at DESC
+            """,
+        nativeQuery = true
+    )
+    List<ArticleEntity> searchByTextMatchNearby(
+        @Param("query") String query,
+        @Param("latitude") double latitude,
+        @Param("longitude") double longitude,
+        @Param("radiusKm") double radiusKm
+    );
 }

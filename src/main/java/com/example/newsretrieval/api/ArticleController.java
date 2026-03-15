@@ -1,6 +1,8 @@
 package com.example.newsretrieval.api;
 
 import com.example.newsretrieval.article.ArticleService;
+import com.example.newsretrieval.location.LocationGeocodingService;
+import com.example.newsretrieval.openai.OpenAiService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -24,20 +26,28 @@ public class ArticleController {
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HHmmss'Z'");
 
     private final ArticleService articleService;
+    private final OpenAiService openAiService;
+    private final LocationGeocodingService locationGeocodingService;
 
-    public ArticleController(ArticleService articleService) {
+    public ArticleController(
+        ArticleService articleService,
+        OpenAiService openAiService,
+        LocationGeocodingService locationGeocodingService
+    ) {
         this.articleService = articleService;
+        this.openAiService = openAiService;
+        this.locationGeocodingService = locationGeocodingService;
     }
 
     @GetMapping("/articles")
     public ResponseEntity<ArticlesResponse> getArticles() {
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articleService.getAllArticles())));
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articleService.getAllArticles())));
     }
 
     @GetMapping("/api/news/category")
     public ResponseEntity<ArticlesResponse> getArticlesByCategory(@RequestParam("category") String category) {
         List<ArticleService.Article> articles = articleService.getArticlesByCategory(category);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
     }
 
     @GetMapping("/api/news/score")
@@ -45,13 +55,13 @@ public class ArticleController {
         @RequestParam(name = "threshold", defaultValue = "0.7") double threshold
     ) {
         List<ArticleService.Article> articles = articleService.getArticlesByRelevanceScore(threshold);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
     }
 
     @GetMapping("/api/news/source")
     public ResponseEntity<ArticlesResponse> getArticlesBySource(@RequestParam("source") String source) {
         List<ArticleService.Article> articles = articleService.getArticlesBySource(source);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
     }
 
     @GetMapping("/api/news/nearby")
@@ -61,7 +71,31 @@ public class ArticleController {
         @RequestParam(name = "radiusKm", defaultValue = "10") double radiusKm
     ) {
         List<ArticleService.Article> articles = articleService.getArticlesNearby(latitude, longitude, radiusKm);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponses(articles)));
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
+    }
+
+    @GetMapping("/api/news/search")
+    public ResponseEntity<ArticlesResponse> searchArticles(
+        @RequestParam("query") String query,
+        @RequestParam(name = "location", required = false) String location,
+        @RequestParam(name = "radiusKm", defaultValue = "100") double radiusKm
+    ) {
+        OpenAiService.SearchCriteria criteria = openAiService.analyzeSearchQuery(query, location);
+        Double latitude = null;
+        Double longitude = null;
+        if (StringUtils.hasText(location)) {
+            LocationGeocodingService.Coordinates coordinates = locationGeocodingService.geocode(location);
+            latitude = coordinates.latitude();
+            longitude = coordinates.longitude();
+        }
+        List<ArticleService.ArticleSearchResult> results = articleService.searchArticles(
+            query,
+            criteria,
+            latitude,
+            longitude,
+            radiusKm
+        );
+        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromSearchResults(results)));
     }
 
     @PostMapping("/articles")
@@ -139,7 +173,11 @@ public class ArticleController {
         @JsonProperty("relevance_score") Double relevanceScore,
         @JsonProperty("llm_summary") String llmSummary,
         Double latitude,
-        Double longitude
+        Double longitude,
+        @JsonProperty("text_match_score") Double textMatchScore,
+        @JsonProperty("source_match_score") Double sourceMatchScore,
+        @JsonProperty("category_match_score") Double categoryMatchScore,
+        @JsonProperty("final_score") Double finalScore
     ) {
     }
 
@@ -163,7 +201,7 @@ public class ArticleController {
         return String.join(", ", categories);
     }
 
-    private List<ArticleResponse> toArticleResponses(List<ArticleService.Article> articles) {
+    private List<ArticleResponse> toArticleResponsesFromArticles(List<ArticleService.Article> articles) {
         return articles.stream()
             .map(article -> new ArticleResponse(
                 article.title(),
@@ -175,7 +213,32 @@ public class ArticleController {
                 article.relevanceScore(),
                 article.aiSummary(),
                 article.latitude(),
-                article.longitude()
+                article.longitude(),
+                null,
+                null,
+                null,
+                null
+            ))
+            .toList();
+    }
+
+    private List<ArticleResponse> toArticleResponsesFromSearchResults(List<ArticleService.ArticleSearchResult> results) {
+        return results.stream()
+            .map(result -> new ArticleResponse(
+                result.article().title(),
+                result.article().description(),
+                result.article().url(),
+                formatPublicationDate(result.article().publicationDate()),
+                result.article().sourceName(),
+                formatCategory(result.article().category()),
+                result.article().relevanceScore(),
+                result.article().aiSummary(),
+                result.article().latitude(),
+                result.article().longitude(),
+                result.textMatchScore(),
+                result.sourceMatchScore(),
+                result.categoryMatchScore(),
+                result.finalScore()
             ))
             .toList();
     }

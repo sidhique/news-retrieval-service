@@ -1,6 +1,7 @@
 package com.example.newsretrieval.article;
 
 import com.example.newsretrieval.gemini.GeminiService;
+import com.example.newsretrieval.openai.OpenAiService;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -90,6 +91,74 @@ public class ArticleService {
         return toArticles(articleRepository.findAllNearby(latitude, longitude, radiusKm));
     }
 
+    @Transactional(readOnly = true)
+    public List<ArticleSearchResult> searchArticles(
+        String query,
+        OpenAiService.SearchCriteria criteria,
+        Double latitude,
+        Double longitude,
+        double radiusKm
+    ) {
+        Objects.requireNonNull(criteria, "Search criteria must be provided.");
+        if (!StringUtils.hasText(query)) {
+            throw new IllegalArgumentException("query is required.");
+        }
+        if (radiusKm <= 0) {
+            throw new IllegalArgumentException("radiusKm must be greater than 0.");
+        }
+
+        boolean nearbyIntent = criteria.hasIntent("nearby");
+        boolean sourceIntent = criteria.hasIntent("source");
+        boolean categoryIntent = criteria.hasIntent("category");
+        boolean latestIntent = criteria.hasIntent("latest");
+
+        boolean hasLatitude = latitude != null;
+        boolean hasLongitude = longitude != null;
+        if (hasLatitude ^ hasLongitude) {
+            throw new IllegalArgumentException("Both latitude and longitude must be provided together.");
+        }
+        if (nearbyIntent && (!hasLatitude || !hasLongitude)) {
+            throw new IllegalArgumentException("location is required when intent is nearby.");
+        }
+
+        String normalizedQuery = query.trim();
+        String source = criteria.source();
+        String category = criteria.category();
+        if (sourceIntent) {
+            if (!StringUtils.hasText(source)) {
+                throw new IllegalArgumentException("source intent detected but source could not be extracted from query.");
+            }
+            return toSearchResults(articleRepository.findAllBySource(source.trim()), 0.0, 1.0, 0.0, 0.6);
+        }
+        if (categoryIntent) {
+            if (!StringUtils.hasText(category)) {
+                throw new IllegalArgumentException("category intent detected but category could not be extracted from query.");
+            }
+            return toSearchResults(articleRepository.findAllByCategory(category.trim()), 0.0, 0.0, 1.0, 0.6);
+        }
+        if (nearbyIntent || (hasLatitude && hasLongitude)) {
+            double lat = Objects.requireNonNull(latitude);
+            double lon = Objects.requireNonNull(longitude);
+            if (lat < -90 || lat > 90) {
+                throw new IllegalArgumentException("latitude must be between -90 and 90.");
+            }
+            if (lon < -180 || lon > 180) {
+                throw new IllegalArgumentException("longitude must be between -180 and 180.");
+            }
+            return toSearchResults(articleRepository.searchByTextMatchNearby(normalizedQuery, lat, lon, radiusKm), 1.0, 0.0, 0.0, 0.7);
+        }
+        if (latestIntent) {
+            List<ArticleEntity> entities = articleRepository.findAll(
+                Sort.by(
+                    Sort.Order.desc("publicationDate").nullsLast(),
+                    Sort.Order.desc("createdAt")
+                )
+            );
+            return toSearchResults(entities, 0.0, 0.0, 0.0, 0.5);
+        }
+        return toSearchResults(articleRepository.searchByTextMatch(normalizedQuery), 1.0, 0.0, 0.0, 0.7);
+    }
+
     private List<String> toCategoryList(String[] values) {
         if (values == null) {
             return List.of();
@@ -102,23 +171,43 @@ public class ArticleService {
     }
 
     private List<Article> toArticles(List<ArticleEntity> entities) {
+        return entities.stream().map(this::toArticle).toList();
+    }
+
+    private List<ArticleSearchResult> toSearchResults(
+        List<ArticleEntity> entities,
+        double textScore,
+        double sourceScore,
+        double categoryScore,
+        double finalScore
+    ) {
         return entities.stream()
-            .map(entity -> new Article(
-                entity.getId(),
-                entity.getTitle(),
-                entity.getDescription(),
-                entity.getUrl(),
-                entity.getPublicationDate(),
-                entity.getSourceName(),
-                toCategoryList(entity.getCategory()),
-                entity.getRelevanceScore(),
-                entity.getLatitude(),
-                entity.getLongitude(),
-                entity.getAiSummary(),
-                entity.getCreatedAt(),
-                entity.getUpdatedAt()
+            .map(entity -> new ArticleSearchResult(
+                toArticle(entity),
+                textScore,
+                sourceScore,
+                categoryScore,
+                finalScore
             ))
             .toList();
+    }
+
+    private Article toArticle(ArticleEntity entity) {
+        return new Article(
+            entity.getId(),
+            entity.getTitle(),
+            entity.getDescription(),
+            entity.getUrl(),
+            entity.getPublicationDate(),
+            entity.getSourceName(),
+            toCategoryList(entity.getCategory()),
+            entity.getRelevanceScore(),
+            entity.getLatitude(),
+            entity.getLongitude(),
+            entity.getAiSummary(),
+            entity.getCreatedAt(),
+            entity.getUpdatedAt()
+        );
     }
 
     public record ArticleUpsertRequest(
@@ -149,6 +238,15 @@ public class ArticleService {
         String aiSummary,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
+    ) {
+    }
+
+    public record ArticleSearchResult(
+        Article article,
+        double textMatchScore,
+        double sourceMatchScore,
+        double categoryMatchScore,
+        double finalScore
     ) {
     }
 }
