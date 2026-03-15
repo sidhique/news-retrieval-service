@@ -2,8 +2,10 @@ package com.example.newsretrieval.article;
 
 import com.example.newsretrieval.gemini.GeminiService;
 import com.example.newsretrieval.openai.OpenAiService;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -27,7 +29,9 @@ public class ArticleService {
     @Transactional
     public String upsertArticle(ArticleUpsertRequest request) {
         UUID articleId = Objects.requireNonNull(request.id(), "id is required.");
-        String aiSummary = geminiService.summarizeArticle(request.title(), request.description());
+        String aiSummary = StringUtils.hasText(request.aiSummary())
+            ? request.aiSummary()
+            : geminiService.summarizeArticle(request.title(), request.description());
         ArticleEntity entity = articleRepository.findById(articleId).orElseGet(ArticleEntity::new);
         entity.setId(articleId);
         entity.setTitle(request.title());
@@ -99,7 +103,7 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public List<ArticleSearchResult> searchArticles(
+    public List<Article> searchArticles(
         String query,
         OpenAiService.SearchCriteria criteria,
         Double latitude,
@@ -117,7 +121,7 @@ public class ArticleService {
         boolean nearbyIntent = criteria.hasIntent("nearby");
         boolean sourceIntent = criteria.hasIntent("source");
         boolean categoryIntent = criteria.hasIntent("category");
-        boolean latestIntent = criteria.hasIntent("latest");
+        boolean textIntent = criteria.hasIntent("text");
 
         boolean hasLatitude = latitude != null;
         boolean hasLongitude = longitude != null;
@@ -131,39 +135,55 @@ public class ArticleService {
         String normalizedQuery = query.trim();
         String source = criteria.source();
         String category = criteria.category();
-        if (sourceIntent) {
-            if (!StringUtils.hasText(source)) {
-                throw new IllegalArgumentException("source intent detected but source could not be extracted from query.");
-            }
-            return toSearchResults(articleRepository.findAllBySource(source.trim()), 0.0, 1.0, 0.0, 0.6);
+        if (sourceIntent && !StringUtils.hasText(source)) {
+            throw new IllegalArgumentException("source intent detected but source could not be extracted from query.");
         }
-        if (categoryIntent) {
-            if (!StringUtils.hasText(category)) {
-                throw new IllegalArgumentException("category intent detected but category could not be extracted from query.");
-            }
-            return toSearchResults(articleRepository.findAllByCategory(category.trim()), 0.0, 0.0, 1.0, 0.6);
+        if (categoryIntent && !StringUtils.hasText(category)) {
+            throw new IllegalArgumentException("category intent detected but category could not be extracted from query.");
         }
-        if (nearbyIntent || (hasLatitude && hasLongitude)) {
-            double lat = Objects.requireNonNull(latitude);
-            double lon = Objects.requireNonNull(longitude);
+
+        boolean applyNearby = nearbyIntent || (hasLatitude && hasLongitude);
+        double lat = 0;
+        double lon = 0;
+        if (applyNearby) {
+            lat = Objects.requireNonNull(latitude);
+            lon = Objects.requireNonNull(longitude);
             if (lat < -90 || lat > 90) {
                 throw new IllegalArgumentException("latitude must be between -90 and 90.");
             }
             if (lon < -180 || lon > 180) {
                 throw new IllegalArgumentException("longitude must be between -180 and 180.");
             }
-            return toSearchResults(articleRepository.searchByTextMatchNearby(normalizedQuery, lat, lon, radiusKm), 1.0, 0.0, 0.0, 0.7);
         }
-        if (latestIntent) {
-            List<ArticleEntity> entities = articleRepository.findAll(
-                Sort.by(
-                    Sort.Order.desc("publicationDate").nullsLast(),
-                    Sort.Order.desc("createdAt")
-                )
-            );
-            return toSearchResults(entities, 0.0, 0.0, 0.0, 0.5);
+
+        boolean applyText = textIntent || (!sourceIntent && !categoryIntent && !nearbyIntent);
+        String textSearchQuery = normalizedQuery;
+        if (textIntent && StringUtils.hasText(criteria.searchTerm())) {
+            textSearchQuery = criteria.searchTerm().trim();
         }
-        return toSearchResults(articleRepository.searchByTextMatch(normalizedQuery), 1.0, 0.0, 0.0, 0.7);
+        String normalizedSource = StringUtils.hasText(source) ? source.trim() : "";
+        String normalizedCategory = StringUtils.hasText(category) ? category.trim() : "";
+
+        List<ArticleRepository.SearchResultRow> scoredRows = articleRepository.searchByCriteriaWithScore(
+            textSearchQuery,
+            normalizedSource,
+            normalizedCategory,
+            lat,
+            lon,
+            radiusKm,
+            sourceIntent,
+            categoryIntent,
+            applyText,
+            applyNearby
+        );
+
+        if (scoredRows.isEmpty()) {
+            return List.of();
+        }
+
+        return scoredRows.stream()
+            .map(this::toArticle)
+            .toList();
     }
 
     private List<String> toCategoryList(String[] values) {
@@ -179,24 +199,6 @@ public class ArticleService {
 
     private List<Article> toArticles(List<ArticleEntity> entities) {
         return entities.stream().map(this::toArticle).toList();
-    }
-
-    private List<ArticleSearchResult> toSearchResults(
-        List<ArticleEntity> entities,
-        double textScore,
-        double sourceScore,
-        double categoryScore,
-        double finalScore
-    ) {
-        return entities.stream()
-            .map(entity -> new ArticleSearchResult(
-                toArticle(entity),
-                textScore,
-                sourceScore,
-                categoryScore,
-                finalScore
-            ))
-            .toList();
     }
 
     private Article toArticle(ArticleEntity entity) {
@@ -217,6 +219,31 @@ public class ArticleService {
         );
     }
 
+    private Article toArticle(ArticleRepository.SearchResultRow row) {
+        return new Article(
+            row.getId(),
+            row.getTitle(),
+            row.getDescription(),
+            row.getUrl(),
+            row.getPublicationDate(),
+            row.getSourceName(),
+            toCategoryList(row.getCategory()),
+            row.getRelevanceScore(),
+            row.getLatitude(),
+            row.getLongitude(),
+            row.getAiSummary(),
+            toOffsetDateTime(row.getCreatedAt()),
+            toOffsetDateTime(row.getUpdatedAt())
+        );
+    }
+
+    private OffsetDateTime toOffsetDateTime(Instant value) {
+        if (value == null) {
+            return null;
+        }
+        return value.atOffset(ZoneOffset.UTC);
+    }
+
     public record ArticleUpsertRequest(
         UUID id,
         String title,
@@ -226,6 +253,7 @@ public class ArticleService {
         String sourceName,
         List<String> category,
         Double relevanceScore,
+        String aiSummary,
         Double latitude,
         Double longitude
     ) {
@@ -254,12 +282,4 @@ public class ArticleService {
     ) {
     }
 
-    public record ArticleSearchResult(
-        Article article,
-        double textMatchScore,
-        double sourceMatchScore,
-        double categoryMatchScore,
-        double finalScore
-    ) {
-    }
 }

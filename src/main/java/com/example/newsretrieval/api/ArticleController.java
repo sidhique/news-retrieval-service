@@ -75,7 +75,7 @@ public class ArticleController {
     }
 
     @GetMapping("/api/news/search")
-    public ResponseEntity<ArticlesResponse> searchArticles(
+    public ResponseEntity<SearchArticlesResponse> searchArticles(
         @RequestParam("query") String query,
         @RequestParam(name = "location", required = false) String location,
         @RequestParam(name = "radiusKm", defaultValue = "100") double radiusKm
@@ -88,14 +88,22 @@ public class ArticleController {
             latitude = coordinates.latitude();
             longitude = coordinates.longitude();
         }
-        List<ArticleService.ArticleSearchResult> results = articleService.searchArticles(
+        List<ArticleService.Article> results = articleService.searchArticles(
             query,
             criteria,
             latitude,
             longitude,
             radiusKm
         );
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromSearchResults(results)));
+        return ResponseEntity.ok(new SearchArticlesResponse(
+            toArticleResponsesFromArticles(results),
+            new SearchCriteriaResponse(
+                criteria.intents(),
+                criteria.searchTerm(),
+                criteria.source(),
+                criteria.category()
+            )
+        ));
     }
 
     @PostMapping("/articles")
@@ -110,6 +118,7 @@ public class ArticleController {
             payload.sourceName(),
             payload.category(),
             payload.relevanceScore(),
+            payload.aiSummary(),
             payload.latitude(),
             payload.longitude()
         );
@@ -135,6 +144,7 @@ public class ArticleController {
                 payload.sourceName(),
                 payload.category(),
                 payload.relevanceScore(),
+                payload.aiSummary(),
                 payload.latitude(),
                 payload.longitude()
             ))
@@ -184,6 +194,7 @@ public class ArticleController {
         @JsonProperty("source_name") String sourceName,
         List<String> category,
         @JsonProperty("relevance_score") Double relevanceScore,
+        @JsonProperty("ai_summary") String aiSummary,
         Double latitude,
         Double longitude
     ) {
@@ -205,15 +216,25 @@ public class ArticleController {
         @JsonProperty("relevance_score") Double relevanceScore,
         @JsonProperty("llm_summary") String llmSummary,
         Double latitude,
-        Double longitude,
-        @JsonProperty("text_match_score") Double textMatchScore,
-        @JsonProperty("source_match_score") Double sourceMatchScore,
-        @JsonProperty("category_match_score") Double categoryMatchScore,
-        @JsonProperty("final_score") Double finalScore
+        Double longitude
     ) {
     }
 
     public record ArticlesResponse(List<ArticleResponse> articles) {
+    }
+
+    public record SearchArticlesResponse(
+        List<ArticleResponse> articles,
+        @JsonProperty("search_criteria") SearchCriteriaResponse searchCriteria
+    ) {
+    }
+
+    public record SearchCriteriaResponse(
+        List<String> intents,
+        @JsonProperty("search_term") String searchTerm,
+        String source,
+        String category
+    ) {
     }
 
     public record ErrorResponse(String error) {
@@ -245,32 +266,7 @@ public class ArticleController {
                 article.relevanceScore(),
                 article.aiSummary(),
                 article.latitude(),
-                article.longitude(),
-                null,
-                null,
-                null,
-                null
-            ))
-            .toList();
-    }
-
-    private List<ArticleResponse> toArticleResponsesFromSearchResults(List<ArticleService.ArticleSearchResult> results) {
-        return results.stream()
-            .map(result -> new ArticleResponse(
-                result.article().title(),
-                result.article().description(),
-                result.article().url(),
-                formatPublicationDate(result.article().publicationDate()),
-                result.article().sourceName(),
-                formatCategory(result.article().category()),
-                result.article().relevanceScore(),
-                result.article().aiSummary(),
-                result.article().latitude(),
-                result.article().longitude(),
-                result.textMatchScore(),
-                result.sourceMatchScore(),
-                result.categoryMatchScore(),
-                result.finalScore()
+                article.longitude()
             ))
             .toList();
     }

@@ -29,10 +29,10 @@ public class OpenAiService {
         Return structured values only based on user intent.
 
         Field guidance:
-        - intents: list from ["nearby","source","category","latest","text"]
-        - keywords: concise list of useful search terms from the query
-        - source: specific publisher name like "Reuters", "New York Times"
-        - category: specific category like "technology", "sports", "national"
+        - intents: list from ["nearby","source","category","text"]
+        - search_term: concise text to use for full-text search when text intent is present
+        - source: specific publisher name like "Reuters", "New York Times". Only extract the source if it is explicitly specified in the query.
+        - category: specific category like "technology", "sports", "world". Only extract the category if it is explicitly specified in the query.
 
         Leave unknown values null.
         """;
@@ -112,14 +112,9 @@ public class OpenAiService {
         }
 
         StructuredSearchCriteria raw = outputs.get(0);
-        List<String> keywords = normalize(raw.keywords);
-        if (keywords.isEmpty()) {
-            keywords = normalize(List.of(query));
-        }
-
         return new SearchCriteria(
             normalize(raw.intents),
-            keywords,
+            normalizeSingle(raw.searchTerm),
             normalizeSingle(raw.source),
             normalizeSingle(raw.category)
         );
@@ -162,7 +157,7 @@ public class OpenAiService {
 
     public static final class StructuredSearchCriteria {
         public List<String> intents;
-        public List<String> keywords;
+        public String searchTerm;
         public String source;
         public String category;
     }
@@ -176,7 +171,7 @@ public class OpenAiService {
 
     public record SearchCriteria(
         List<String> intents,
-        List<String> keywords,
+        String searchTerm,
         String source,
         String category
     ) {
