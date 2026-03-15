@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -24,62 +25,120 @@ public class ArticleController {
 
     private static final DateTimeFormatter PUBLICATION_DATE_FORMATTER =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HHmmss'Z'");
+    private static final int MAX_LIMIT = 100;
 
     private final ArticleService articleService;
     private final OpenAiService openAiService;
     private final LocationGeocodingService locationGeocodingService;
+    private final int defaultLimit;
 
     public ArticleController(
         ArticleService articleService,
         OpenAiService openAiService,
-        LocationGeocodingService locationGeocodingService
+        LocationGeocodingService locationGeocodingService,
+        @Value("${app.pagination.default-limit:20}") int defaultLimit
     ) {
         this.articleService = articleService;
         this.openAiService = openAiService;
         this.locationGeocodingService = locationGeocodingService;
+        this.defaultLimit = defaultLimit;
     }
 
     @GetMapping("/articles")
-    public ResponseEntity<ArticlesResponse> getArticles() {
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articleService.getAllArticles())));
+    public ResponseEntity<ArticlesResponse> getArticles(
+        @RequestParam(name = "offset", defaultValue = "0") Integer offset,
+        @RequestParam(name = "limit", required = false) Integer limit
+    ) {
+        Pagination pagination = resolvePagination(offset, limit);
+        ArticleService.ArticlePage page = articleService.getAllArticles(pagination.offset(), pagination.limit());
+        List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
+        return ResponseEntity.ok(new ArticlesResponse(
+            articles,
+            toPaginationResponse(pagination, page.totalCount())
+        ));
     }
 
     @GetMapping("/api/news/category")
-    public ResponseEntity<ArticlesResponse> getArticlesByCategory(@RequestParam("category") String category) {
-        List<ArticleService.Article> articles = articleService.getArticlesByCategory(category);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
+    public ResponseEntity<ArticlesResponse> getArticlesByCategory(
+        @RequestParam("category") String category,
+        @RequestParam(name = "offset", defaultValue = "0") Integer offset,
+        @RequestParam(name = "limit", required = false) Integer limit
+    ) {
+        Pagination pagination = resolvePagination(offset, limit);
+        ArticleService.ArticlePage page = articleService.getArticlesByCategory(category, pagination.offset(), pagination.limit());
+        List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
+        return ResponseEntity.ok(new ArticlesResponse(
+            articles,
+            toPaginationResponse(pagination, page.totalCount())
+        ));
     }
 
     @GetMapping("/api/news/score")
     public ResponseEntity<ArticlesResponse> getArticlesByRelevance(
-        @RequestParam(name = "threshold", defaultValue = "0.7") double threshold
+        @RequestParam(name = "threshold", defaultValue = "0.7") double threshold,
+        @RequestParam(name = "offset", defaultValue = "0") Integer offset,
+        @RequestParam(name = "limit", required = false) Integer limit
     ) {
-        List<ArticleService.Article> articles = articleService.getArticlesByRelevanceScore(threshold);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
+        Pagination pagination = resolvePagination(offset, limit);
+        ArticleService.ArticlePage page = articleService.getArticlesByRelevanceScore(
+            threshold,
+            pagination.offset(),
+            pagination.limit()
+        );
+        List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
+        return ResponseEntity.ok(new ArticlesResponse(
+            articles,
+            toPaginationResponse(pagination, page.totalCount())
+        ));
     }
 
     @GetMapping("/api/news/source")
-    public ResponseEntity<ArticlesResponse> getArticlesBySource(@RequestParam("source") String source) {
-        List<ArticleService.Article> articles = articleService.getArticlesBySource(source);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
+    public ResponseEntity<ArticlesResponse> getArticlesBySource(
+        @RequestParam("source") String source,
+        @RequestParam(name = "offset", defaultValue = "0") Integer offset,
+        @RequestParam(name = "limit", required = false) Integer limit
+    ) {
+        Pagination pagination = resolvePagination(offset, limit);
+        ArticleService.ArticlePage page = articleService.getArticlesBySource(source, pagination.offset(), pagination.limit());
+        List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
+        return ResponseEntity.ok(new ArticlesResponse(
+            articles,
+            toPaginationResponse(pagination, page.totalCount())
+        ));
     }
 
     @GetMapping("/api/news/nearby")
     public ResponseEntity<ArticlesResponse> getNearbyArticles(
         @RequestParam("latitude") double latitude,
         @RequestParam("longitude") double longitude,
-        @RequestParam(name = "radiusKm", defaultValue = "10") double radiusKm
+        @RequestParam(name = "radiusKm", defaultValue = "10") double radiusKm,
+        @RequestParam(name = "offset", defaultValue = "0") Integer offset,
+        @RequestParam(name = "limit", required = false) Integer limit
     ) {
-        List<ArticleService.Article> articles = articleService.getArticlesNearby(latitude, longitude, radiusKm);
-        return ResponseEntity.ok(new ArticlesResponse(toArticleResponsesFromArticles(articles)));
+        Pagination pagination = resolvePagination(offset, limit);
+        ArticleService.ArticlePage page = articleService.getArticlesNearby(
+            latitude,
+            longitude,
+            radiusKm,
+            pagination.offset(),
+            pagination.limit()
+        );
+        List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
+        return ResponseEntity.ok(new ArticlesResponse(
+            articles,
+            toPaginationResponse(pagination, page.totalCount())
+        ));
     }
 
     @GetMapping("/api/news/search")
     public ResponseEntity<SearchArticlesResponse> searchArticles(
         @RequestParam("query") String query,
         @RequestParam(name = "location", required = false) String location,
-        @RequestParam(name = "radiusKm", defaultValue = "100") double radiusKm
+        @RequestParam(name = "radiusKm", defaultValue = "100") double radiusKm,
+        @RequestParam(name = "offset", defaultValue = "0") Integer offset,
+        @RequestParam(name = "limit", required = false) Integer limit
     ) {
+        Pagination pagination = resolvePagination(offset, limit);
         OpenAiService.SearchCriteria criteria = openAiService.analyzeSearchQuery(query, location);
         Double latitude = null;
         Double longitude = null;
@@ -88,15 +147,19 @@ public class ArticleController {
             latitude = coordinates.latitude();
             longitude = coordinates.longitude();
         }
-        List<ArticleService.Article> results = articleService.searchArticles(
+        ArticleService.ArticlePage page = articleService.searchArticles(
             query,
             criteria,
             latitude,
             longitude,
-            radiusKm
+            radiusKm,
+            pagination.offset(),
+            pagination.limit()
         );
+        List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
         return ResponseEntity.ok(new SearchArticlesResponse(
-            toArticleResponsesFromArticles(results),
+            articles,
+            toPaginationResponse(pagination, page.totalCount()),
             new SearchCriteriaResponse(
                 criteria.intents(),
                 criteria.searchTerm(),
@@ -220,11 +283,15 @@ public class ArticleController {
     ) {
     }
 
-    public record ArticlesResponse(List<ArticleResponse> articles) {
+    public record ArticlesResponse(
+        List<ArticleResponse> articles,
+        PaginationResponse pagination
+    ) {
     }
 
     public record SearchArticlesResponse(
         List<ArticleResponse> articles,
+        PaginationResponse pagination,
         @JsonProperty("search_criteria") SearchCriteriaResponse searchCriteria
     ) {
     }
@@ -238,6 +305,32 @@ public class ArticleController {
     }
 
     public record ErrorResponse(String error) {
+    }
+
+    private Pagination resolvePagination(Integer offset, Integer requestedLimit) {
+        int normalizedOffset = offset == null ? 0 : offset;
+        if (normalizedOffset < 0) {
+            throw new IllegalArgumentException("offset must be greater than or equal to 0.");
+        }
+
+        int configuredDefault = defaultLimit <= 0 ? 20 : defaultLimit;
+        int normalizedLimit = requestedLimit == null || requestedLimit <= 0 ? configuredDefault : requestedLimit;
+        normalizedLimit = Math.min(normalizedLimit, MAX_LIMIT);
+        return new Pagination(normalizedOffset, normalizedLimit);
+    }
+
+    private record Pagination(int offset, int limit) {
+    }
+
+    public record PaginationResponse(
+        int offset,
+        int limit,
+        long count
+    ) {
+    }
+
+    private PaginationResponse toPaginationResponse(Pagination pagination, long count) {
+        return new PaginationResponse(pagination.offset(), pagination.limit(), count);
     }
 
     private String formatPublicationDate(LocalDateTime publicationDate) {

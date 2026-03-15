@@ -9,6 +9,54 @@ import org.springframework.data.repository.query.Param;
 
 public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
 
+    interface CountedRow {
+        Long getTotalCount();
+    }
+
+    interface ArticleRow extends CountedRow {
+        UUID getId();
+        String getTitle();
+        String getDescription();
+        String getUrl();
+        java.time.LocalDateTime getPublicationDate();
+        String getSourceName();
+        String[] getCategory();
+        Double getRelevanceScore();
+        Double getLatitude();
+        Double getLongitude();
+        String getAiSummary();
+        java.time.Instant getCreatedAt();
+        java.time.Instant getUpdatedAt();
+    }
+
+    @Query(
+        value = """
+            SELECT
+              a.id AS id,
+              a.title AS title,
+              a.description AS description,
+              a.url AS url,
+              a.publication_date AS publicationDate,
+              a.source_name AS sourceName,
+              a.category AS category,
+              a.relevance_score AS relevanceScore,
+              a.latitude AS latitude,
+              a.longitude AS longitude,
+              a.ai_summary AS aiSummary,
+              a.created_at AS createdAt,
+              a.updated_at AS updatedAt,
+              COUNT(*) OVER() AS totalCount
+            FROM articles a
+            ORDER BY a.publication_date DESC NULLS LAST, a.created_at DESC
+            LIMIT :limit OFFSET :offset
+            """,
+        nativeQuery = true
+    )
+    List<ArticleRow> findAllPaged(
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
+
     @Modifying
     @Query(
         value = """
@@ -22,67 +70,141 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
 
     @Query(
         value = """
-            SELECT *
-            FROM articles
+            SELECT
+              a.id AS id,
+              a.title AS title,
+              a.description AS description,
+              a.url AS url,
+              a.publication_date AS publicationDate,
+              a.source_name AS sourceName,
+              a.category AS category,
+              a.relevance_score AS relevanceScore,
+              a.latitude AS latitude,
+              a.longitude AS longitude,
+              a.ai_summary AS aiSummary,
+              a.created_at AS createdAt,
+              a.updated_at AS updatedAt,
+              COUNT(*) OVER() AS totalCount
+            FROM articles a
             WHERE EXISTS (
                 SELECT 1
-                FROM unnest(category) AS c
+                FROM unnest(a.category) AS c
                 WHERE lower(c) = lower(:category)
             )
-            ORDER BY publication_date DESC NULLS LAST, created_at DESC
+            ORDER BY a.publication_date DESC NULLS LAST, a.created_at DESC
+            LIMIT :limit OFFSET :offset
             """,
         nativeQuery = true
     )
-    List<ArticleEntity> findAllByCategory(@Param("category") String category);
+    List<ArticleRow> findAllByCategory(
+        @Param("category") String category,
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
 
     @Query(
         value = """
-            SELECT *
-            FROM articles
-            WHERE relevance_score IS NOT NULL
-              AND relevance_score > :threshold
-            ORDER BY relevance_score DESC, publication_date DESC NULLS LAST, created_at DESC
+            SELECT
+              a.id AS id,
+              a.title AS title,
+              a.description AS description,
+              a.url AS url,
+              a.publication_date AS publicationDate,
+              a.source_name AS sourceName,
+              a.category AS category,
+              a.relevance_score AS relevanceScore,
+              a.latitude AS latitude,
+              a.longitude AS longitude,
+              a.ai_summary AS aiSummary,
+              a.created_at AS createdAt,
+              a.updated_at AS updatedAt,
+              COUNT(*) OVER() AS totalCount
+            FROM articles a
+            WHERE a.relevance_score IS NOT NULL
+              AND a.relevance_score > :threshold
+            ORDER BY a.relevance_score DESC, a.publication_date DESC NULLS LAST, a.created_at DESC
+            LIMIT :limit OFFSET :offset
             """,
         nativeQuery = true
     )
-    List<ArticleEntity> findAllByRelevanceScoreGreaterThan(@Param("threshold") double threshold);
+    List<ArticleRow> findAllByRelevanceScoreGreaterThan(
+        @Param("threshold") double threshold,
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
 
     @Query(
         value = """
-            SELECT *
-            FROM articles
-            WHERE source_name IS NOT NULL
-              AND lower(source_name) = lower(:source)
-            ORDER BY publication_date DESC NULLS LAST, created_at DESC
+            SELECT
+              a.id AS id,
+              a.title AS title,
+              a.description AS description,
+              a.url AS url,
+              a.publication_date AS publicationDate,
+              a.source_name AS sourceName,
+              a.category AS category,
+              a.relevance_score AS relevanceScore,
+              a.latitude AS latitude,
+              a.longitude AS longitude,
+              a.ai_summary AS aiSummary,
+              a.created_at AS createdAt,
+              a.updated_at AS updatedAt,
+              COUNT(*) OVER() AS totalCount
+            FROM articles a
+            WHERE a.source_name IS NOT NULL
+              AND lower(a.source_name) = lower(:source)
+            ORDER BY a.publication_date DESC NULLS LAST, a.created_at DESC
+            LIMIT :limit OFFSET :offset
             """,
         nativeQuery = true
     )
-    List<ArticleEntity> findAllBySource(@Param("source") String source);
+    List<ArticleRow> findAllBySource(
+        @Param("source") String source,
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
 
     @Query(
         value = """
-            SELECT *
-            FROM articles
-            WHERE location_point IS NOT NULL
+            SELECT
+              a.id AS id,
+              a.title AS title,
+              a.description AS description,
+              a.url AS url,
+              a.publication_date AS publicationDate,
+              a.source_name AS sourceName,
+              a.category AS category,
+              a.relevance_score AS relevanceScore,
+              a.latitude AS latitude,
+              a.longitude AS longitude,
+              a.ai_summary AS aiSummary,
+              a.created_at AS createdAt,
+              a.updated_at AS updatedAt,
+              COUNT(*) OVER() AS totalCount
+            FROM articles a
+            WHERE a.location_point IS NOT NULL
               AND ST_DWithin(
-                    location_point,
+                    a.location_point,
                     ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
                     :radiusKm * 1000
                   )
             ORDER BY
               ST_Distance(
-                location_point,
+                a.location_point,
                 ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
               ) ASC,
-              publication_date DESC NULLS LAST,
-              created_at DESC
+              a.publication_date DESC NULLS LAST,
+              a.created_at DESC
+            LIMIT :limit OFFSET :offset
             """,
         nativeQuery = true
     )
-    List<ArticleEntity> findAllNearby(
+    List<ArticleRow> findAllNearby(
         @Param("latitude") double latitude,
         @Param("longitude") double longitude,
-        @Param("radiusKm") double radiusKm
+        @Param("radiusKm") double radiusKm,
+        @Param("limit") int limit,
+        @Param("offset") int offset
     );
 
     @Query(
@@ -227,7 +349,7 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         @Param("applyNearby") boolean applyNearby
     );
 
-    interface SearchResultRow {
+    interface SearchResultRow extends CountedRow {
         UUID getId();
         String getTitle();
         String getDescription();
@@ -260,7 +382,8 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
               a.ai_summary AS aiSummary,
               a.created_at AS createdAt,
               a.updated_at AS updatedAt,
-              LEAST(GREATEST(COALESCE(a.relevance_score, 0), 0), 1) AS finalScore
+              LEAST(GREATEST(COALESCE(a.relevance_score, 0), 0), 1) AS finalScore,
+              COUNT(*) OVER() AS totalCount
             FROM articles a
             WHERE (:applySource = false OR (
                       a.source_name IS NOT NULL
@@ -312,6 +435,7 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
               END ASC,
               a.publication_date DESC NULLS LAST,
               a.created_at DESC
+            LIMIT :limit OFFSET :offset
             """,
         nativeQuery = true
     )
@@ -325,6 +449,8 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         @Param("applySource") boolean applySource,
         @Param("applyCategory") boolean applyCategory,
         @Param("applyText") boolean applyText,
-        @Param("applyNearby") boolean applyNearby
+        @Param("applyNearby") boolean applyNearby,
+        @Param("limit") int limit,
+        @Param("offset") int offset
     );
 }

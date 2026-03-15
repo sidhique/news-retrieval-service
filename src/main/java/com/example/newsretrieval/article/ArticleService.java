@@ -10,7 +10,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,39 +56,39 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public List<Article> getAllArticles() {
-        List<ArticleEntity> entities = articleRepository.findAll(
-            Sort.by(
-                Sort.Order.desc("publicationDate").nullsLast(),
-                Sort.Order.desc("createdAt")
-            )
-        );
-        return toArticles(entities);
+    public ArticlePage getAllArticles(int offset, int limit) {
+        List<ArticleRepository.ArticleRow> rows = articleRepository.findAllPaged(limit, offset);
+        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
-    public List<Article> getArticlesByCategory(String category) {
+    public ArticlePage getArticlesByCategory(String category, int offset, int limit) {
         if (!StringUtils.hasText(category)) {
             throw new IllegalArgumentException("category is required.");
         }
-        return toArticles(articleRepository.findAllByCategory(category.trim()));
+        String normalizedCategory = category.trim();
+        List<ArticleRepository.ArticleRow> rows = articleRepository.findAllByCategory(normalizedCategory, limit, offset);
+        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
-    public List<Article> getArticlesByRelevanceScore(double threshold) {
-        return toArticles(articleRepository.findAllByRelevanceScoreGreaterThan(threshold));
+    public ArticlePage getArticlesByRelevanceScore(double threshold, int offset, int limit) {
+        List<ArticleRepository.ArticleRow> rows = articleRepository.findAllByRelevanceScoreGreaterThan(threshold, limit, offset);
+        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
-    public List<Article> getArticlesBySource(String source) {
+    public ArticlePage getArticlesBySource(String source, int offset, int limit) {
         if (!StringUtils.hasText(source)) {
             throw new IllegalArgumentException("source is required.");
         }
-        return toArticles(articleRepository.findAllBySource(source.trim()));
+        String normalizedSource = source.trim();
+        List<ArticleRepository.ArticleRow> rows = articleRepository.findAllBySource(normalizedSource, limit, offset);
+        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
-    public List<Article> getArticlesNearby(double latitude, double longitude, double radiusKm) {
+    public ArticlePage getArticlesNearby(double latitude, double longitude, double radiusKm, int offset, int limit) {
         if (latitude < -90 || latitude > 90) {
             throw new IllegalArgumentException("latitude must be between -90 and 90.");
         }
@@ -99,16 +98,19 @@ public class ArticleService {
         if (radiusKm <= 0) {
             throw new IllegalArgumentException("radiusKm must be greater than 0.");
         }
-        return toArticles(articleRepository.findAllNearby(latitude, longitude, radiusKm));
+        List<ArticleRepository.ArticleRow> rows = articleRepository.findAllNearby(latitude, longitude, radiusKm, limit, offset);
+        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
-    public List<Article> searchArticles(
+    public ArticlePage searchArticles(
         String query,
         OpenAiService.SearchCriteria criteria,
         Double latitude,
         Double longitude,
-        double radiusKm
+        double radiusKm,
+        int offset,
+        int limit
     ) {
         Objects.requireNonNull(criteria, "Search criteria must be provided.");
         if (!StringUtils.hasText(query)) {
@@ -174,16 +176,13 @@ public class ArticleService {
             sourceIntent,
             categoryIntent,
             applyText,
-            applyNearby
+            applyNearby,
+            limit,
+            offset
         );
-
-        if (scoredRows.isEmpty()) {
-            return List.of();
-        }
-
-        return scoredRows.stream()
+        return new ArticlePage(scoredRows.stream()
             .map(this::toArticle)
-            .toList();
+            .toList(), extractTotalCount(scoredRows));
     }
 
     private List<String> toCategoryList(String[] values) {
@@ -197,29 +196,33 @@ public class ArticleService {
             .toList();
     }
 
-    private List<Article> toArticles(List<ArticleEntity> entities) {
-        return entities.stream().map(this::toArticle).toList();
-    }
-
-    private Article toArticle(ArticleEntity entity) {
-        return new Article(
-            entity.getId(),
-            entity.getTitle(),
-            entity.getDescription(),
-            entity.getUrl(),
-            entity.getPublicationDate(),
-            entity.getSourceName(),
-            toCategoryList(entity.getCategory()),
-            entity.getRelevanceScore(),
-            entity.getLatitude(),
-            entity.getLongitude(),
-            entity.getAiSummary(),
-            entity.getCreatedAt(),
-            entity.getUpdatedAt()
-        );
+    private long extractTotalCount(List<? extends ArticleRepository.CountedRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return 0L;
+        }
+        Long total = rows.get(0).getTotalCount();
+        return total == null ? 0L : total;
     }
 
     private Article toArticle(ArticleRepository.SearchResultRow row) {
+        return new Article(
+            row.getId(),
+            row.getTitle(),
+            row.getDescription(),
+            row.getUrl(),
+            row.getPublicationDate(),
+            row.getSourceName(),
+            toCategoryList(row.getCategory()),
+            row.getRelevanceScore(),
+            row.getLatitude(),
+            row.getLongitude(),
+            row.getAiSummary(),
+            toOffsetDateTime(row.getCreatedAt()),
+            toOffsetDateTime(row.getUpdatedAt())
+        );
+    }
+
+    private Article toArticle(ArticleRepository.ArticleRow row) {
         return new Article(
             row.getId(),
             row.getTitle(),
@@ -279,6 +282,12 @@ public class ArticleService {
         String aiSummary,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
+    ) {
+    }
+
+    public record ArticlePage(
+        List<Article> articles,
+        long totalCount
     ) {
     }
 
