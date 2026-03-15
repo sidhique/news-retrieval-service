@@ -453,4 +453,5 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
         @Param("limit") int limit,
         @Param("offset") int offset
     );
+
 }

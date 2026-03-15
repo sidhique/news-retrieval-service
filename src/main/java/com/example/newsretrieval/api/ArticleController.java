@@ -1,6 +1,7 @@
 package com.example.newsretrieval.api;
 
 import com.example.newsretrieval.article.ArticleService;
+import com.example.newsretrieval.article.TrendingService;
 import com.example.newsretrieval.location.LocationGeocodingService;
 import com.example.newsretrieval.openai.OpenAiService;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,17 +31,20 @@ public class ArticleController {
     private static final int MAX_LIMIT = 100;
 
     private final ArticleService articleService;
+    private final TrendingService trendingService;
     private final OpenAiService openAiService;
     private final LocationGeocodingService locationGeocodingService;
     private final int defaultLimit;
 
     public ArticleController(
         ArticleService articleService,
+        TrendingService trendingService,
         OpenAiService openAiService,
         LocationGeocodingService locationGeocodingService,
         @Value("${app.pagination.default-limit:20}") int defaultLimit
     ) {
         this.articleService = articleService;
+        this.trendingService = trendingService;
         this.openAiService = openAiService;
         this.locationGeocodingService = locationGeocodingService;
         this.defaultLimit = defaultLimit;
@@ -171,6 +175,35 @@ public class ArticleController {
         ));
     }
 
+    @GetMapping("/trending")
+    public ResponseEntity<TrendingFeedResponse> getTrendingFeed(
+        @RequestParam("lat") double latitude,
+        @RequestParam("lon") double longitude,
+        @RequestParam(name = "limit", required = false) Integer limit
+    ) {
+        Pagination pagination = resolvePagination(0, limit);
+        TrendingService.TrendingFeed feed = trendingService.getTrendingFeed(latitude, longitude, pagination.limit());
+        List<TrendingArticleResponse> articles = feed.items().stream()
+            .map(item -> new TrendingArticleResponse(
+                item.article().title(),
+                item.article().description(),
+                item.article().url(),
+                formatPublicationDate(item.article().publicationDate()),
+                item.article().sourceName(),
+                formatCategory(item.article().category()),
+                item.article().relevanceScore(),
+                item.article().aiSummary(),
+                item.article().latitude(),
+                item.article().longitude(),
+                item.trendingScore()
+            ))
+            .toList();
+        return ResponseEntity.ok(new TrendingFeedResponse(
+            articles,
+            toPaginationResponse(pagination, feed.totalCount())
+        ));
+    }
+
     @PostMapping("/articles")
     public ResponseEntity<ArticleUpsertResponse> upsertArticle(@RequestBody ArticleUpsertPayload payload) {
         validate(payload);
@@ -295,6 +328,27 @@ public class ArticleController {
         List<ArticleResponse> articles,
         PaginationResponse pagination,
         @JsonProperty("search_criteria") SearchCriteriaResponse searchCriteria
+    ) {
+    }
+
+    public record TrendingFeedResponse(
+        List<TrendingArticleResponse> articles,
+        PaginationResponse pagination
+    ) {
+    }
+
+    public record TrendingArticleResponse(
+        String title,
+        String description,
+        String url,
+        @JsonProperty("publication_date") String publicationDate,
+        @JsonProperty("source_name") String sourceName,
+        String category,
+        @JsonProperty("relevance_score") Double relevanceScore,
+        @JsonProperty("llm_summary") String llmSummary,
+        Double latitude,
+        Double longitude,
+        @JsonProperty("trending_score") Double trendingScore
     ) {
     }
 
