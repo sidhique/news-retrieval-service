@@ -1,4 +1,4 @@
-package com.example.newsretrieval.openai;
+package com.example.newsretrieval.services.openai;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;

@@ -1,4 +1,4 @@
-package com.example.newsretrieval.api;
+package com.example.newsretrieval.api.controllers;
 
 import java.util.Map;
 import org.springframework.http.ResponseEntity;

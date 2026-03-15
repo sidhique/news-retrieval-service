@@ -1,9 +1,9 @@
-package com.example.newsretrieval.gemini;
+package com.example.newsretrieval.services.openai;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "gemini")
-public class GeminiProperties {
+@ConfigurationProperties(prefix = "openai")
+public class OpenAiProperties {
 
     private String apiKey;
     private String model;

@@ -1,19 +1,33 @@
-package com.example.newsretrieval.api;
+package com.example.newsretrieval.api.controllers;
 
-import com.example.newsretrieval.article.ArticleService;
-import com.example.newsretrieval.article.TrendingService;
-import com.example.newsretrieval.location.LocationGeocodingService;
-import com.example.newsretrieval.openai.OpenAiService;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.ArticleBatchUpsertResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.ArticleResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.ArticleUpsertPayload;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.ArticleUpsertResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.ArticlesResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.ErrorResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.PaginationResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.SearchArticlesResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.SearchCriteriaResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.TrendingArticleResponse;
+import com.example.newsretrieval.api.dto.ArticleApiDtos.TrendingFeedResponse;
+import com.example.newsretrieval.article.model.ArticleModels.Article;
+import com.example.newsretrieval.article.model.ArticleModels.ArticlePage;
+import com.example.newsretrieval.article.model.ArticleModels.ArticleUpsertRequest;
+import com.example.newsretrieval.article.model.ArticleModels.TrendingFeed;
+import com.example.newsretrieval.article.service.ArticleService;
+import com.example.newsretrieval.article.service.TrendingService;
+import com.example.newsretrieval.services.location.LocationGeocodingService;
+import com.example.newsretrieval.services.openai.OpenAiService;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +35,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -57,7 +70,7 @@ public class ArticleController {
         @RequestParam(name = "limit", required = false) Integer limit
     ) {
         Pagination pagination = resolvePagination(offset, limit);
-        ArticleService.ArticlePage page = articleService.getAllArticles(pagination.offset(), pagination.limit());
+        ArticlePage page = articleService.getAllArticles(pagination.offset(), pagination.limit());
         List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
         return ResponseEntity.ok(new ArticlesResponse(
             articles,
@@ -72,7 +85,7 @@ public class ArticleController {
         @RequestParam(name = "limit", required = false) Integer limit
     ) {
         Pagination pagination = resolvePagination(offset, limit);
-        ArticleService.ArticlePage page = articleService.getArticlesByCategory(category, pagination.offset(), pagination.limit());
+        ArticlePage page = articleService.getArticlesByCategory(category, pagination.offset(), pagination.limit());
         List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
         return ResponseEntity.ok(new ArticlesResponse(
             articles,
@@ -87,7 +100,7 @@ public class ArticleController {
         @RequestParam(name = "limit", required = false) Integer limit
     ) {
         Pagination pagination = resolvePagination(offset, limit);
-        ArticleService.ArticlePage page = articleService.getArticlesByRelevanceScore(
+        ArticlePage page = articleService.getArticlesByRelevanceScore(
             threshold,
             pagination.offset(),
             pagination.limit()
@@ -106,7 +119,7 @@ public class ArticleController {
         @RequestParam(name = "limit", required = false) Integer limit
     ) {
         Pagination pagination = resolvePagination(offset, limit);
-        ArticleService.ArticlePage page = articleService.getArticlesBySource(source, pagination.offset(), pagination.limit());
+        ArticlePage page = articleService.getArticlesBySource(source, pagination.offset(), pagination.limit());
         List<ArticleResponse> articles = toArticleResponsesFromArticles(page.articles());
         return ResponseEntity.ok(new ArticlesResponse(
             articles,
@@ -123,7 +136,7 @@ public class ArticleController {
         @RequestParam(name = "limit", required = false) Integer limit
     ) {
         Pagination pagination = resolvePagination(offset, limit);
-        ArticleService.ArticlePage page = articleService.getArticlesNearby(
+        ArticlePage page = articleService.getArticlesNearby(
             latitude,
             longitude,
             radiusKm,
@@ -154,7 +167,7 @@ public class ArticleController {
             latitude = coordinates.latitude();
             longitude = coordinates.longitude();
         }
-        ArticleService.ArticlePage page = articleService.searchArticles(
+        ArticlePage page = articleService.searchArticles(
             query,
             criteria,
             latitude,
@@ -183,7 +196,7 @@ public class ArticleController {
         @RequestParam(name = "limit", required = false) Integer limit
     ) {
         Pagination pagination = resolvePagination(0, limit);
-        TrendingService.TrendingFeed feed = trendingService.getTrendingFeed(latitude, longitude, pagination.limit());
+        TrendingFeed feed = trendingService.getTrendingFeed(latitude, longitude, pagination.limit());
         List<TrendingArticleResponse> articles = feed.items().stream()
             .map(item -> new TrendingArticleResponse(
                 item.article().title(),
@@ -208,7 +221,7 @@ public class ArticleController {
     @PostMapping("/articles")
     public ResponseEntity<ArticleUpsertResponse> upsertArticle(@RequestBody ArticleUpsertPayload payload) {
         validate(payload);
-        ArticleService.ArticleUpsertRequest request = new ArticleService.ArticleUpsertRequest(
+        ArticleUpsertRequest request = new ArticleUpsertRequest(
             payload.id(),
             payload.title(),
             payload.description(),
@@ -232,9 +245,9 @@ public class ArticleController {
             throw new IllegalArgumentException("payload list must not be empty.");
         }
 
-        List<ArticleService.ArticleUpsertRequest> requests = payloads.stream()
+        List<ArticleUpsertRequest> requests = payloads.stream()
             .peek(this::validate)
-            .map(payload -> new ArticleService.ArticleUpsertRequest(
+            .map(payload -> new ArticleUpsertRequest(
                 payload.id(),
                 payload.title(),
                 payload.description(),
@@ -290,86 +303,6 @@ public class ArticleController {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(new ErrorResponse(ex.getMessage()));
     }
 
-    public record ArticleUpsertPayload(
-        UUID id,
-        String title,
-        String description,
-        String url,
-        @JsonProperty("publication_date") LocalDateTime publicationDate,
-        @JsonProperty("source_name") String sourceName,
-        List<String> category,
-        @JsonProperty("relevance_score") Double relevanceScore,
-        @JsonProperty("ai_summary") String aiSummary,
-        Double latitude,
-        Double longitude
-    ) {
-    }
-
-    public record ArticleUpsertResponse(UUID id, @JsonProperty("ai_summary") String aiSummary) {
-    }
-
-    public record ArticleBatchUpsertResponse(List<ArticleUpsertResponse> articles) {
-    }
-
-    public record ArticleResponse(
-        String title,
-        String description,
-        String url,
-        @JsonProperty("publication_date") String publicationDate,
-        @JsonProperty("source_name") String sourceName,
-        String category,
-        @JsonProperty("relevance_score") Double relevanceScore,
-        @JsonProperty("llm_summary") String llmSummary,
-        Double latitude,
-        Double longitude
-    ) {
-    }
-
-    public record ArticlesResponse(
-        List<ArticleResponse> articles,
-        PaginationResponse pagination
-    ) {
-    }
-
-    public record SearchArticlesResponse(
-        List<ArticleResponse> articles,
-        PaginationResponse pagination,
-        @JsonProperty("search_criteria") SearchCriteriaResponse searchCriteria
-    ) {
-    }
-
-    public record TrendingFeedResponse(
-        List<TrendingArticleResponse> articles,
-        PaginationResponse pagination
-    ) {
-    }
-
-    public record TrendingArticleResponse(
-        String title,
-        String description,
-        String url,
-        @JsonProperty("publication_date") String publicationDate,
-        @JsonProperty("source_name") String sourceName,
-        String category,
-        @JsonProperty("relevance_score") Double relevanceScore,
-        @JsonProperty("llm_summary") String llmSummary,
-        Double latitude,
-        Double longitude,
-        @JsonProperty("trending_score") Double trendingScore
-    ) {
-    }
-
-    public record SearchCriteriaResponse(
-        List<String> intents,
-        @JsonProperty("search_term") String searchTerm,
-        String source,
-        String category
-    ) {
-    }
-
-    public record ErrorResponse(String error) {
-    }
-
     private Pagination resolvePagination(Integer offset, Integer requestedLimit) {
         int normalizedOffset = offset == null ? 0 : offset;
         if (normalizedOffset < 0) {
@@ -383,13 +316,6 @@ public class ArticleController {
     }
 
     private record Pagination(int offset, int limit) {
-    }
-
-    public record PaginationResponse(
-        int offset,
-        int limit,
-        long count
-    ) {
     }
 
     private PaginationResponse toPaginationResponse(Pagination pagination, long count) {
@@ -410,7 +336,7 @@ public class ArticleController {
         return String.join(", ", categories);
     }
 
-    private List<ArticleResponse> toArticleResponsesFromArticles(List<ArticleService.Article> articles) {
+    private List<ArticleResponse> toArticleResponsesFromArticles(List<Article> articles) {
         return articles.stream()
             .map(article -> new ArticleResponse(
                 article.title(),

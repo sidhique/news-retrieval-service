@@ -1,5 +1,6 @@
-package com.example.newsretrieval.article;
+package com.example.newsretrieval.article.repository;
 
+import com.example.newsretrieval.article.entity.TrendingEventEntity;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;

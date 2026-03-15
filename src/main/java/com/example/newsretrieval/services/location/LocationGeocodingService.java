@@ -1,4 +1,4 @@
-package com.example.newsretrieval.location;
+package com.example.newsretrieval.services.location;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;

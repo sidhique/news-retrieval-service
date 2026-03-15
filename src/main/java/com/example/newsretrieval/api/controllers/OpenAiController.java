@@ -1,6 +1,6 @@
-package com.example.newsretrieval.api;
+package com.example.newsretrieval.api.controllers;
 
-import com.example.newsretrieval.openai.OpenAiService;
+import com.example.newsretrieval.services.openai.OpenAiService;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -1,9 +1,14 @@
-package com.example.newsretrieval.article;
+package com.example.newsretrieval.article.service;
 
-import com.example.newsretrieval.gemini.GeminiService;
-import com.example.newsretrieval.openai.OpenAiService;
+import com.example.newsretrieval.article.entity.ArticleEntity;
+import com.example.newsretrieval.article.model.ArticleModels.Article;
+import com.example.newsretrieval.article.model.ArticleModels.ArticlePage;
+import com.example.newsretrieval.article.model.ArticleModels.ArticleUpsertRequest;
+import com.example.newsretrieval.article.model.ArticleModels.ArticleUpsertResult;
+import com.example.newsretrieval.article.repository.ArticleRepository;
+import com.example.newsretrieval.services.gemini.GeminiService;
+import com.example.newsretrieval.services.openai.OpenAiService;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -11,8 +16,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 public class ArticleService {
@@ -246,49 +251,4 @@ public class ArticleService {
         }
         return value.atOffset(ZoneOffset.UTC);
     }
-
-    public record ArticleUpsertRequest(
-        UUID id,
-        String title,
-        String description,
-        String url,
-        LocalDateTime publicationDate,
-        String sourceName,
-        List<String> category,
-        Double relevanceScore,
-        String aiSummary,
-        Double latitude,
-        Double longitude
-    ) {
-    }
-
-    public record ArticleUpsertResult(
-        UUID id,
-        String aiSummary
-    ) {
-    }
-
-    public record Article(
-        UUID id,
-        String title,
-        String description,
-        String url,
-        LocalDateTime publicationDate,
-        String sourceName,
-        List<String> category,
-        Double relevanceScore,
-        Double latitude,
-        Double longitude,
-        String aiSummary,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-    ) {
-    }
-
-    public record ArticlePage(
-        List<Article> articles,
-        long totalCount
-    ) {
-    }
-
 }

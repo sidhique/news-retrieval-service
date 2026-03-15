@@ -1,9 +1,9 @@
-package com.example.newsretrieval.api;
+package com.example.newsretrieval.api.controllers;
 
-import com.example.newsretrieval.article.TrendingService;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.OffsetDateTime;
-import java.util.UUID;
+import com.example.newsretrieval.api.dto.TrendingEventDtos.EventUpsertPayload;
+import com.example.newsretrieval.api.dto.TrendingEventDtos.EventUpsertResponse;
+import com.example.newsretrieval.article.model.ArticleModels.EventUpsertRequest;
+import com.example.newsretrieval.article.service.TrendingService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,7 +23,7 @@ public class TrendingEventController {
 
     @PostMapping("/events")
     public ResponseEntity<EventUpsertResponse> createEvent(@RequestBody EventUpsertPayload payload) {
-        TrendingService.EventUpsertRequest request = new TrendingService.EventUpsertRequest(
+        EventUpsertRequest request = new EventUpsertRequest(
             payload.userId(),
             payload.articleId(),
             payload.eventType(),
@@ -33,18 +33,5 @@ public class TrendingEventController {
         );
         trendingService.recordEvent(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(new EventUpsertResponse("accepted"));
-    }
-
-    public record EventUpsertPayload(
-        @JsonProperty("user_id") UUID userId,
-        @JsonProperty("article_id") UUID articleId,
-        @JsonProperty("event_type") String eventType,
-        Double latitude,
-        Double longitude,
-        @JsonProperty("occurred_at") OffsetDateTime occurredAt
-    ) {
-    }
-
-    public record EventUpsertResponse(String status) {
     }
 }

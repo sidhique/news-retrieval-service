@@ -1,5 +1,12 @@
-package com.example.newsretrieval.article;
+package com.example.newsretrieval.article.service;
 
+import com.example.newsretrieval.article.entity.TrendingEventEntity;
+import com.example.newsretrieval.article.model.ArticleModels.Article;
+import com.example.newsretrieval.article.model.ArticleModels.EventUpsertRequest;
+import com.example.newsretrieval.article.model.ArticleModels.TrendingArticle;
+import com.example.newsretrieval.article.model.ArticleModels.TrendingFeed;
+import com.example.newsretrieval.article.repository.ArticleRepository;
+import com.example.newsretrieval.article.repository.TrendingEventRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -178,8 +185,8 @@ public class TrendingService {
         }
     }
 
-    private ArticleService.Article toArticle(TrendingEventRepository.TrendingFeedRow row) {
-        return new ArticleService.Article(
+    private Article toArticle(TrendingEventRepository.TrendingFeedRow row) {
+        return new Article(
             row.getId(),
             row.getTitle(),
             row.getDescription(),
@@ -217,31 +224,6 @@ public class TrendingService {
         List<TrendingArticle> items,
         long totalCount,
         Instant cachedAt
-    ) {
-    }
-
-    public record TrendingArticle(
-        ArticleService.Article article,
-        double trendingScore
-    ) {
-    }
-
-    public record TrendingFeed(
-        List<TrendingArticle> items,
-        long totalCount,
-        int limit,
-        int offset,
-        Instant generatedAt
-    ) {
-    }
-
-    public record EventUpsertRequest(
-        UUID userId,
-        UUID articleId,
-        String eventType,
-        Double latitude,
-        Double longitude,
-        OffsetDateTime occurredAt
     ) {
     }
 

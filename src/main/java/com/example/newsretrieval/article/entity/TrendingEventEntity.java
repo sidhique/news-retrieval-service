@@ -1,4 +1,4 @@
-package com.example.newsretrieval.article;
+package com.example.newsretrieval.article.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
