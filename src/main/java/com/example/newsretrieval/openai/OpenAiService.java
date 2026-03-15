@@ -133,7 +133,14 @@ public class OpenAiService {
     }
 
     private String normalizeSingle(String value) {
-        return StringUtils.hasText(value) ? value.trim() : null;
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String normalized = value.trim();
+        if ("null".equalsIgnoreCase(normalized)) {
+            return null;
+        }
+        return normalized;
     }
 
     private List<String> normalize(List<String> values) {
@@ -143,7 +150,10 @@ public class OpenAiService {
         }
         for (String value : values) {
             if (StringUtils.hasText(value)) {
-                normalized.add(value.trim());
+                String cleaned = value.trim();
+                if (!"null".equalsIgnoreCase(cleaned)) {
+                    normalized.add(cleaned);
+                }
             }
         }
         return normalized;
