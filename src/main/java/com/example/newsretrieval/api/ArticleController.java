@@ -118,6 +118,35 @@ public class ArticleController {
             .body(new ArticleUpsertResponse(payload.id(), aiSummary));
     }
 
+    @PostMapping("/articles/batch")
+    public ResponseEntity<ArticleBatchUpsertResponse> upsertArticles(@RequestBody List<ArticleUpsertPayload> payloads) {
+        if (payloads == null || payloads.isEmpty()) {
+            throw new IllegalArgumentException("payload list must not be empty.");
+        }
+
+        List<ArticleService.ArticleUpsertRequest> requests = payloads.stream()
+            .peek(this::validate)
+            .map(payload -> new ArticleService.ArticleUpsertRequest(
+                payload.id(),
+                payload.title(),
+                payload.description(),
+                payload.url(),
+                payload.publicationDate(),
+                payload.sourceName(),
+                payload.category(),
+                payload.relevanceScore(),
+                payload.latitude(),
+                payload.longitude()
+            ))
+            .toList();
+
+        List<ArticleUpsertResponse> responses = articleService.upsertArticles(requests).stream()
+            .map(result -> new ArticleUpsertResponse(result.id(), result.aiSummary()))
+            .toList();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(new ArticleBatchUpsertResponse(responses));
+    }
+
     private void validate(ArticleUpsertPayload payload) {
         if (payload.id() == null) {
             throw new IllegalArgumentException("id is required.");
@@ -161,6 +190,9 @@ public class ArticleController {
     }
 
     public record ArticleUpsertResponse(UUID id, @JsonProperty("ai_summary") String aiSummary) {
+    }
+
+    public record ArticleBatchUpsertResponse(List<ArticleUpsertResponse> articles) {
     }
 
     public record ArticleResponse(

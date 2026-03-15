@@ -45,6 +45,13 @@ public class ArticleService {
         return aiSummary;
     }
 
+    @Transactional
+    public List<ArticleUpsertResult> upsertArticles(List<ArticleUpsertRequest> requests) {
+        return requests.stream()
+            .map(request -> new ArticleUpsertResult(request.id(), upsertArticle(request)))
+            .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<Article> getAllArticles() {
         List<ArticleEntity> entities = articleRepository.findAll(
@@ -221,6 +228,12 @@ public class ArticleService {
         Double relevanceScore,
         Double latitude,
         Double longitude
+    ) {
+    }
+
+    public record ArticleUpsertResult(
+        UUID id,
+        String aiSummary
     ) {
     }
 
