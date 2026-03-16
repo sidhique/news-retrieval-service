@@ -203,12 +203,7 @@ curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/search?query
 With location:
 
 ```bash
-curl -s --get "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/search" \
-  --data-urlencode "query=technology news from Moneycontrol near Hyderabad" \
-  --data-urlencode "location=Hyderabad" \
-  --data-urlencode "radiusKm=200" \
-  --data-urlencode "offset=0" \
-  --data-urlencode "limit=20"
+https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/search?query=technology news from Moneycontrol near Hyderabad&location=Hyderabad&radiusKm=200&offset=0&limit=20
 ```
 
 ## Trending APIs
