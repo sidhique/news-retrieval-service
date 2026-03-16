@@ -37,6 +37,11 @@ Spring Boot service for ingesting, searching, and ranking news articles with geo
 - PostgreSQL + PostGIS
 - OpenAI Java SDK
 
+## Deployment and infrastructure
+
+- Database: PostgreSQL with PostGIS extension, hosted on Google Cloud Platform (GCP).
+- Runtime: Spring Boot application deployed on Google Cloud Run.
+
 ## Data model (high level)
 
 ### `articles`
@@ -83,7 +88,7 @@ Required env vars for LLM integrations:
 mvn spring-boot:run
 ```
 
-Base URL: `http://localhost:8080`
+Base URL: `https://news-retrieval-kcxlpvvfyq-uc.a.run.app`
 
 ## Pagination behavior
 
@@ -100,7 +105,7 @@ Base URL: `http://localhost:8080`
 ### Health
 
 ```bash
-curl -s http://localhost:8080/health
+curl -s https://news-retrieval-kcxlpvvfyq-uc.a.run.app/health
 ```
 
 ### Upsert single article (`POST /api/v1/articles`)
@@ -108,7 +113,7 @@ curl -s http://localhost:8080/health
 If `ai_summary` is provided, Gemini summarization is skipped.
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/articles \
+curl -s -X POST https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/articles \
   -H "Content-Type: application/json" \
   -d '{
     "id": "492a3461-a3a2-4727-9f00-5b04558ddc97",
@@ -128,7 +133,7 @@ curl -s -X POST http://localhost:8080/api/v1/articles \
 ### Upsert articles batch (`POST /api/v1/articles/batch`)
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/articles/batch \
+curl -s -X POST https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/articles/batch \
   -H "Content-Type: application/json" \
   -d '[
     {
@@ -162,25 +167,25 @@ curl -s -X POST http://localhost:8080/api/v1/articles/batch \
 ### Filter by category (`GET /api/v1/news/category`)
 
 ```bash
-curl -s "http://localhost:8080/api/v1/news/category?category=technology&offset=0&limit=20"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/category?category=technology&offset=0&limit=20"
 ```
 
 ### Filter by relevance score (`GET /api/v1/news/score`)
 
 ```bash
-curl -s "http://localhost:8080/api/v1/news/score?threshold=0.7&offset=0&limit=20"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/score?threshold=0.7&offset=0&limit=20"
 ```
 
 ### Filter by source (`GET /api/v1/news/source`)
 
 ```bash
-curl -s "http://localhost:8080/api/v1/news/source?source=Reuters&offset=0&limit=20"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/source?source=News18&offset=0&limit=20"
 ```
 
 ### Nearby articles (`GET /api/v1/news/nearby`)
 
 ```bash
-curl -s "http://localhost:8080/api/v1/news/nearby?latitude=16.120734&longitude=79.163399&radiusKm=25&offset=0&limit=20"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/nearby?latitude=16.120734&longitude=79.163399&radiusKm=25&offset=0&limit=20"
 ```
 
 ### Smart search (`GET /api/v1/news/search`)
@@ -188,17 +193,17 @@ curl -s "http://localhost:8080/api/v1/news/nearby?latitude=16.120734&longitude=7
 Uses OpenAI-extracted criteria and returns them in `search_criteria`.
 
 ```bash
-curl -s "http://localhost:8080/api/v1/news/search?query=Ukraine war news"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/search?query=Ukraine war news"
 ```
 
 ```bash
-curl -s "http://localhost:8080/api/v1/news/search?query=tech news"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/search?query=tech news"
 ```
 
 With location:
 
 ```bash
-curl -s --get "http://localhost:8080/api/v1/news/search" \
+curl -s --get "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/news/search" \
   --data-urlencode "query=technology news from Moneycontrol near Hyderabad" \
   --data-urlencode "location=Hyderabad" \
   --data-urlencode "radiusKm=200" \
@@ -211,7 +216,7 @@ curl -s --get "http://localhost:8080/api/v1/news/search" \
 ### Record trending event (`POST /api/v1/events`)
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/events \
+curl -s -X POST https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "7e1b5d6f-16cf-4ef2-90e3-8465f2f95e5f",
@@ -226,7 +231,7 @@ curl -s -X POST http://localhost:8080/api/v1/events \
 ### Get trending feed (`GET /api/v1/trending`)
 
 ```bash
-curl -s "http://localhost:8080/api/v1/trending?lat=16.120734&lon=79.163399&limit=20"
+curl -s "https://news-retrieval-kcxlpvvfyq-uc.a.run.app/api/v1/trending?lat=16.120734&lon=79.163399&limit=20"
 ```
 
 ## Notes
