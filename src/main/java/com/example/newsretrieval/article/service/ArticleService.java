@@ -63,7 +63,7 @@ public class ArticleService {
     @Transactional(readOnly = true)
     public ArticlePage getAllArticles(int offset, int limit) {
         List<ArticleRepository.ArticleRow> rows = articleRepository.findAllPaged(limit, offset);
-        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
+        return new ArticlePage(toArticles(rows), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
@@ -73,13 +73,13 @@ public class ArticleService {
         }
         String normalizedCategory = category.trim();
         List<ArticleRepository.ArticleRow> rows = articleRepository.findAllByCategory(normalizedCategory, limit, offset);
-        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
+        return new ArticlePage(toArticles(rows), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
     public ArticlePage getArticlesByRelevanceScore(double threshold, int offset, int limit) {
         List<ArticleRepository.ArticleRow> rows = articleRepository.findAllByRelevanceScoreGreaterThan(threshold, limit, offset);
-        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
+        return new ArticlePage(toArticles(rows), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +89,7 @@ public class ArticleService {
         }
         String normalizedSource = source.trim();
         List<ArticleRepository.ArticleRow> rows = articleRepository.findAllBySource(normalizedSource, limit, offset);
-        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
+        return new ArticlePage(toArticles(rows), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
@@ -104,7 +104,7 @@ public class ArticleService {
             throw new IllegalArgumentException("radiusKm must be greater than 0.");
         }
         List<ArticleRepository.ArticleRow> rows = articleRepository.findAllNearby(latitude, longitude, radiusKm, limit, offset);
-        return new ArticlePage(rows.stream().map(this::toArticle).toList(), extractTotalCount(rows));
+        return new ArticlePage(toArticles(rows), extractTotalCount(rows));
     }
 
     @Transactional(readOnly = true)
@@ -207,6 +207,16 @@ public class ArticleService {
         }
         Long total = rows.get(0).getTotalCount();
         return total == null ? 0L : total;
+    }
+
+    private List<Article> toArticles(List<ArticleRepository.ArticleRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+            .filter(row -> row.getId() != null)
+            .map(this::toArticle)
+            .toList();
     }
 
     private Article toArticle(ArticleRepository.SearchResultRow row) {

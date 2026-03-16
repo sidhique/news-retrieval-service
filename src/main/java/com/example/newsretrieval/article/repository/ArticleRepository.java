@@ -71,29 +71,56 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
 
     @Query(
         value = """
-            SELECT
-              a.id AS id,
-              a.title AS title,
-              a.description AS description,
-              a.url AS url,
-              a.publication_date AS publicationDate,
-              a.source_name AS sourceName,
-              a.category AS category,
-              a.relevance_score AS relevanceScore,
-              a.latitude AS latitude,
-              a.longitude AS longitude,
-              a.ai_summary AS aiSummary,
-              a.created_at AS createdAt,
-              a.updated_at AS updatedAt,
-              COUNT(*) OVER() AS totalCount
-            FROM articles a
-            WHERE EXISTS (
-                SELECT 1
-                FROM unnest(a.category) AS c
-                WHERE lower(c) = lower(:category)
+            WITH filtered AS (
+                SELECT
+                  a.id AS id,
+                  a.title AS title,
+                  a.description AS description,
+                  a.url AS url,
+                  a.publication_date AS publicationDate,
+                  a.source_name AS sourceName,
+                  a.category AS category,
+                  a.relevance_score AS relevanceScore,
+                  a.latitude AS latitude,
+                  a.longitude AS longitude,
+                  a.ai_summary AS aiSummary,
+                  a.created_at AS createdAt,
+                  a.updated_at AS updatedAt
+                FROM articles a
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM unnest(a.category) AS c
+                    WHERE lower(c) = lower(:category)
+                )
+            ),
+            paged AS (
+                SELECT *
+                FROM filtered
+                ORDER BY publicationDate DESC NULLS LAST, createdAt DESC
+                LIMIT :limit OFFSET :offset
+            ),
+            total AS (
+                SELECT COUNT(*) AS totalCount
+                FROM filtered
             )
-            ORDER BY a.publication_date DESC NULLS LAST, a.created_at DESC
-            LIMIT :limit OFFSET :offset
+            SELECT
+              p.id AS id,
+              p.title AS title,
+              p.description AS description,
+              p.url AS url,
+              p.publicationDate AS publicationDate,
+              p.sourceName AS sourceName,
+              p.category AS category,
+              p.relevanceScore AS relevanceScore,
+              p.latitude AS latitude,
+              p.longitude AS longitude,
+              p.aiSummary AS aiSummary,
+              p.createdAt AS createdAt,
+              p.updatedAt AS updatedAt,
+              t.totalCount AS totalCount
+            FROM total t
+            LEFT JOIN paged p ON true
+            ORDER BY p.publicationDate DESC NULLS LAST, p.createdAt DESC
             """,
         nativeQuery = true
     )
@@ -136,26 +163,53 @@ public interface ArticleRepository extends JpaRepository<ArticleEntity, UUID> {
 
     @Query(
         value = """
+            WITH filtered AS (
+                SELECT
+                  a.id AS id,
+                  a.title AS title,
+                  a.description AS description,
+                  a.url AS url,
+                  a.publication_date AS publicationDate,
+                  a.source_name AS sourceName,
+                  a.category AS category,
+                  a.relevance_score AS relevanceScore,
+                  a.latitude AS latitude,
+                  a.longitude AS longitude,
+                  a.ai_summary AS aiSummary,
+                  a.created_at AS createdAt,
+                  a.updated_at AS updatedAt
+                FROM articles a
+                WHERE a.source_name IS NOT NULL
+                  AND lower(a.source_name) = lower(:source)
+            ),
+            paged AS (
+                SELECT *
+                FROM filtered
+                ORDER BY publicationDate DESC NULLS LAST, createdAt DESC
+                LIMIT :limit OFFSET :offset
+            ),
+            total AS (
+                SELECT COUNT(*) AS totalCount
+                FROM filtered
+            )
             SELECT
-              a.id AS id,
-              a.title AS title,
-              a.description AS description,
-              a.url AS url,
-              a.publication_date AS publicationDate,
-              a.source_name AS sourceName,
-              a.category AS category,
-              a.relevance_score AS relevanceScore,
-              a.latitude AS latitude,
-              a.longitude AS longitude,
-              a.ai_summary AS aiSummary,
-              a.created_at AS createdAt,
-              a.updated_at AS updatedAt,
-              COUNT(*) OVER() AS totalCount
-            FROM articles a
-            WHERE a.source_name IS NOT NULL
-              AND lower(a.source_name) = lower(:source)
-            ORDER BY a.publication_date DESC NULLS LAST, a.created_at DESC
-            LIMIT :limit OFFSET :offset
+              p.id AS id,
+              p.title AS title,
+              p.description AS description,
+              p.url AS url,
+              p.publicationDate AS publicationDate,
+              p.sourceName AS sourceName,
+              p.category AS category,
+              p.relevanceScore AS relevanceScore,
+              p.latitude AS latitude,
+              p.longitude AS longitude,
+              p.aiSummary AS aiSummary,
+              p.createdAt AS createdAt,
+              p.updatedAt AS updatedAt,
+              t.totalCount AS totalCount
+            FROM total t
+            LEFT JOIN paged p ON true
+            ORDER BY p.publicationDate DESC NULLS LAST, p.createdAt DESC
             """,
         nativeQuery = true
     )
